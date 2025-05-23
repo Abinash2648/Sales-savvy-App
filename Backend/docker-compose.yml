@@ -1,0 +1,52 @@
+version: "3.9"
+
+services:
+###############################################################################
+# MySQL database
+###############################################################################
+  db:
+    image: mysql:8.0
+    container_name: salessavvy-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "Abinash@264#"   # quotes needed for '@'
+      MYSQL_DATABASE: salessavvy
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -p\"${MYSQL_ROOT_PASSWORD}\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+###############################################################################
+# Spring-Boot application
+###############################################################################
+  sales-savvy:
+    build: .
+    container_name: salessavvy-backend
+    ports:
+      - "9090:9090"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Override JDBC settings so the app talks to the *container* DB
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/salessavvy
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: "Abinash@264#"
+      SPRING_JPA_HIBERNATE_DDL_AUTO: validate
+      # JWT & payment keys (use secrets in real prod)
+      JWT_SECRET: your-very-long-secure-secret-key-for-production-12345678901234567890
+      JWT_EXPIRATION: "3600000"
+      RAZORPAY_KEY_ID: rzp_test_9clfd0A3sDTYL1
+      RAZORPAY_KEY_SECRET: UcwxJQtWBiRsXCY5LTddbpvg
+    volumes:
+      # Mount the same properties file so you can tweak it without rebuilding
+      - ./src/main/resources/application.properties:/app/config/application.properties
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
